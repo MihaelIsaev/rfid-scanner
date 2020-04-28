@@ -195,6 +195,7 @@ class RFID {
                             self.delegate?.rfidDidScanTag(self, withResult: .success(uid))
                         }
                         sleep(UInt32(self.waitTime))
+                        break
                     } catch {
                         if i == tries {
                             DispatchQueue.main.async {
