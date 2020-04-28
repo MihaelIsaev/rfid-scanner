@@ -169,8 +169,10 @@ class RFID {
             guard let self = self else { return }
             while self.ranging {
                 print("Wait for tag...")
+                // this will block until iqr is triggered
                 self.waitForTag()
                 
+                // try a bunch of times before bailing out
                 let tries = 100
                 for i in 1...tries {
                     do {
@@ -194,7 +196,6 @@ class RFID {
                         }
                         sleep(UInt32(self.waitTime))
                     } catch {
-                        // try a bunch of times before bailing out
                         if i == tries {
                             DispatchQueue.main.async {
                                 self.delegate?.rfidDidScanTag(self, withResult: .failure(error))
@@ -216,6 +217,7 @@ class RFID {
         irqGPIO.direction = .IN
         irqGPIO.value = 0
         irqGPIO.clearListeners()
+        setAntennaOff()
     }
     
     deinit {
@@ -433,7 +435,7 @@ class RFID {
     }
     
     /// gets tag type
-    func request(mode: Byte = 0x26) throws -> Int {
+    private func request(mode: Byte = 0x26) throws -> Int {
         print("request")
         devWrite(address: BitFramingReg, value: 0x07) // start transmission
         
@@ -447,7 +449,7 @@ class RFID {
     }
     
     /// gets uid of tag
-    func anticoll() throws -> Bytes {
+    private func anticoll() throws -> Bytes {
         print("anticol")
         devWrite(address: BitFramingReg, value: 0x00)
         
@@ -460,7 +462,7 @@ class RFID {
         return backData
     }
     
-    func calulateCRC(data: [Byte]) -> [Byte] {
+    private func calulateCRC(data: [Byte]) -> [Byte] {
         clearBitmask(address: DivIrqReg, mask: 0x04)
         setBitmask(address: FIFOLevelReg, mask: 0x80)
         
@@ -483,7 +485,7 @@ class RFID {
         ]
     }
     
-    func selectTag(serNum: Bytes) throws -> Byte {
+    private func selectTag(serNum: Bytes) throws -> Byte {
         var buf: [Byte] = [PICC_SElECTTAG, 0x70]
         for i in 0 ..< 5 {
             buf.append(serNum[i])
@@ -503,7 +505,7 @@ class RFID {
         }
     }
     
-    func auth(authMode: Byte, blockAddr: Byte, sectorkey: [Byte], serNum: [Byte]) throws {
+    private func auth(authMode: Byte, blockAddr: Byte, sectorkey: [Byte], serNum: [Byte]) throws {
         var buff: [Byte] = []
 
         // First byte should be the authMode (A or B)
@@ -529,11 +531,11 @@ class RFID {
         }
     }
     
-    func stopCrypto() {
+    private func stopCrypto() {
         clearBitmask(address: Status2Reg, mask: 0x08)
     }
     
-    func dumpClassic1K(key: [Byte], uid: [Byte]) throws {
+    private func dumpClassic1K(key: [Byte], uid: [Byte]) throws {
         for i: Byte in 0 ..< 64 {
             try auth(authMode: PICC_AUTHENT1A, blockAddr: i, sectorkey: key, serNum: uid)
             let _ = try read(address: i)
